@@ -74,6 +74,22 @@ function buildEvolucaoMensal(items: Solicitacao[]) {
     })
 }
 
+function computeAverageResolutionDays(items: Solicitacao[]) {
+  const durations = items
+    .map((item) => {
+      const start = parseDateDMY(item.data)
+      const end = parseDateDMY(item.dataFinalizacao ?? '')
+      if (!start.day || !start.month || !start.year || !end.day || !end.month || !end.year) return null
+      const startDate = new Date(start.year, start.month - 1, start.day).getTime()
+      const endDate = new Date(end.year, end.month - 1, end.day).getTime()
+      const diff = (endDate - startDate) / (1000 * 60 * 60 * 24)
+      return diff >= 0 ? diff : null
+    })
+    .filter((value): value is number => value !== null)
+  if (durations.length === 0) return null
+  return durations.reduce((acc, value) => acc + value, 0) / durations.length
+}
+
 function compareByDateDesc(a: Solicitacao, b: Solicitacao) {
   const aDate = parseDateDMY(a.data)
   const bDate = parseDateDMY(b.data)
@@ -98,17 +114,19 @@ export default async function DashboardPage() {
   const evolucaoMensal = buildEvolucaoMensal(solicitacoes)
   const recent = [...solicitacoes].sort(compareByDateDesc).slice(0, 6)
   const topClientes = buildTopClients(solicitacoes).slice(0, 6)
+  const pct = (value: number) => (total ? `${Math.round((value / total) * 100)}% do total` : 'sem dados')
+  const tempoMedio = computeAverageResolutionDays(solicitacoes)
 
   return (
     <AppShell crumb="NEXLAB / OPERAÇÃO" title="Dashboard Executivo">
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total" value={kpis.total} delta="↑ +12 esta semana" icon={ClipboardList} severity="neutral" />
-        <KpiCard label="Em análise" value={kpis.analise} delta="15% do total" icon={Search} severity="warning" />
-        <KpiCard label="Em teste" value={kpis.teste} delta="21% do total" icon={FlaskConical} severity="info" />
-        <KpiCard label="Finalizadas" value={kpis.finalizadas} delta="57% do total" icon={Check} severity="success" />
-        <KpiCard label="Canceladas" value={kpis.canceladas} delta="3,6% do total" icon={X} severity="neutral" />
-        <KpiCard label="Atrasadas" value={kpis.atrasadas} delta="requer atenção" icon={AlertTriangle} severity="danger" />
+        <KpiCard label="Total" value={kpis.total} delta="solicitações registradas" icon={ClipboardList} severity="neutral" />
+        <KpiCard label="Em análise" value={kpis.analise} delta={pct(kpis.analise)} icon={Search} severity="warning" />
+        <KpiCard label="Em teste" value={kpis.teste} delta={pct(kpis.teste)} icon={FlaskConical} severity="info" />
+        <KpiCard label="Finalizadas" value={kpis.finalizadas} delta={pct(kpis.finalizadas)} icon={Check} severity="success" />
+        <KpiCard label="Canceladas" value={kpis.canceladas} delta={pct(kpis.canceladas)} icon={X} severity="neutral" />
+        <KpiCard label="Atrasadas" value={kpis.atrasadas} delta={kpis.atrasadas > 0 ? 'requer atenção' : 'sem atrasos'} icon={AlertTriangle} severity="danger" />
       </div>
 
       {/* Donut + bars */}
@@ -152,16 +170,23 @@ export default async function DashboardPage() {
           <LineChart data={evolucaoMensal} />
         </Panel>
         <Panel>
-          <PanelHead title="Tempo Médio" tag="KPI" />
+          <PanelHead title="Tempo Médio de Resolução" tag="KPI" />
           <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-2">
-            <div className="font-mono text-[34px] font-bold">
-              <CountUp value={6.4} decimals={1} />
-              <span className="text-[15px] font-semibold text-ink-faint"> dias</span>
-            </div>
-            <div className="text-[11px] text-ink-faint">meta: 5,0 dias</div>
-            <span className="mt-2 h-[7px] w-full overflow-hidden rounded-full bg-surface-alt">
-              <span className="animate-grow-x block h-full rounded-full bg-gradient-to-r from-warning to-[#c2410c]" style={{ width: '78%' }} />
-            </span>
+            {tempoMedio !== null ? (
+              <>
+                <div className="font-mono text-[34px] font-bold">
+                  <CountUp value={Number(tempoMedio.toFixed(1))} decimals={1} />
+                  <span className="text-[15px] font-semibold text-ink-faint"> dias</span>
+                </div>
+                <div className="text-[11px] text-ink-faint">
+                  com base nas solicitações finalizadas
+                </div>
+              </>
+            ) : (
+              <div className="text-center text-[12.5px] text-ink-faint">
+                Sem dados de finalização suficientes para calcular o tempo médio.
+              </div>
+            )}
           </div>
         </Panel>
       </div>

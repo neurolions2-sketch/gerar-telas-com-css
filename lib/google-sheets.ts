@@ -1,9 +1,6 @@
 import { google } from 'googleapis'
 import {
-  PRIORITY,
   STATUS,
-  solicitacoes as demoSolicitacoes,
-  type PriorityKey,
   type Solicitacao,
   type StatusKey,
 } from './nexlab-data'
@@ -180,8 +177,8 @@ export async function getSheetTitle(authClient: any) {
 
 export async function fetchSolicitacoesFromSheet() {
   if (!sheetId || !clientEmail || !privateKey) {
-    console.warn('Google Sheets credentials are not configured. Using demo data fallback.')
-    return demoSolicitacoes
+    console.warn('[v0] Google Sheets credentials are not configured. Returning empty list.')
+    return [] as Solicitacao[]
   }
 
   try {
@@ -208,9 +205,9 @@ export async function fetchSolicitacoesFromSheet() {
     })
   } catch (error) {
     console.warn(
-      '[v0] Failed to read Google Sheet (check GOOGLE_SHEET_ID and that the service account has access). Using demo data fallback.',
+      '[v0] Failed to read Google Sheet (check GOOGLE_SHEET_ID and that the service account has access). Returning empty list.',
       error instanceof Error ? error.message : error,
     )
-    return demoSolicitacoes
+    return [] as Solicitacao[]
   }
 }

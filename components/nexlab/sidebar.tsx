@@ -36,18 +36,26 @@ export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [solicitacoesCount, setSolicitacoesCount] = useState<number | null>(null)
+  const [synced, setSynced] = useState<boolean | null>(null)
 
   useEffect(() => {
     let isMounted = true
     const fetchCount = async () => {
       try {
         const res = await fetch('/api/kanban')
-        if (!res.ok) return
+        if (!res.ok) {
+          if (isMounted) setSynced(false)
+          return
+        }
         const payload = await res.json().catch(() => null)
-        if (!isMounted || !payload || !Array.isArray(payload.data)) return
+        if (!isMounted || !payload || !Array.isArray(payload.data)) {
+          if (isMounted) setSynced(false)
+          return
+        }
         setSolicitacoesCount(payload.data.length)
+        setSynced(true)
       } catch {
-        // keep fallback count if API is unavailable
+        if (isMounted) setSynced(false)
       }
     }
 
@@ -109,7 +117,7 @@ export function Sidebar() {
             {group.items.map((item) => {
               const active = isActive(item.href)
               const Icon = item.icon
-              const countLabel = item.href === '/solicitacoes' ? (solicitacoesCount !== null ? `${solicitacoesCount}` : '...') : item.count
+              const countLabel = item.href === '/solicitacoes' ? (solicitacoesCount !== null ? `${solicitacoesCount}` : '...') : null
               return (
                 <Link
                   key={item.href}
@@ -157,8 +165,20 @@ export function Sidebar() {
           <>
             <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#7d8db7]">Sincronização</div>
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-success shadow-[0_0_0_8px_rgba(20,184,166,0.18)]" />
-              <span>Ativo há 2 minutos</span>
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  synced === false
+                    ? 'bg-danger shadow-[0_0_0_8px_rgba(220,38,38,0.18)]'
+                    : 'bg-success shadow-[0_0_0_8px_rgba(20,184,166,0.18)]'
+                }`}
+              />
+              <span>
+                {synced === null
+                  ? 'Verificando planilha…'
+                  : synced
+                    ? 'Conectado à planilha'
+                    : 'Sem conexão com a planilha'}
+              </span>
             </div>
           </>
         ) : (

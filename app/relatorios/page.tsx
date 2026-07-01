@@ -14,23 +14,23 @@ type ReportItem = { titulo: string; meta: string; tipo: ReportType }
 
 const relatoriosRecentes: ReportItem[] = [
   {
-    titulo: 'Relatório Mensal — Junho 2026',
-    meta: 'PDF · volume dinâmico · gerado há 2h',
+    titulo: 'Relatório Mensal',
+    meta: 'PDF · panorama de solicitações do mês',
     tipo: 'pdf',
   },
   {
-    titulo: 'Exportação Qualidade — Q2',
-    meta: 'Excel · setor Qualidade · gerado ontem',
+    titulo: 'Exportação Qualidade',
+    meta: 'Excel · solicitações do setor Qualidade',
     tipo: 'excel',
   },
   {
-    titulo: 'Indicadores de Atraso — Maio',
-    meta: 'PDF · volume dinâmico · 02/06/2026',
+    titulo: 'Indicadores de Atraso',
+    meta: 'PDF · solicitações em atraso por setor',
     tipo: 'pdf',
   },
   {
-    titulo: 'Top Clientes — Semestre',
-    meta: 'Excel · ranking consolidado · 28/05/2026',
+    titulo: 'Top Clientes',
+    meta: 'Excel · ranking consolidado de clientes',
     tipo: 'excel',
   },
 ]
@@ -486,7 +486,7 @@ export default function RelatoriosPage() {
       <div className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
         <div className="grid gap-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <SummaryCard label="Relatórios gerados" value={`${relatoriosRecentes.length}`} caption="Últimos 7 dias" />
+            <SummaryCard label="Modelos de relatório" value={`${relatoriosRecentes.length}`} caption="Disponíveis para exportação" />
             <SummaryCard label="Solicitações no painel" value={`${kpis.total}`} caption="Total de solicitações" />
             <SummaryCard label="Atrasos ativos" value={`${kpis.atrasadas}`} caption="Solicitações em atraso" />
           </div>

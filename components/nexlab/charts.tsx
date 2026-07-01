@@ -130,13 +130,22 @@ export function LineChart({
   const w = 560
   const h = height
   const pad = { top: 14, bottom: 26, left: 6, right: 12 }
-  const max = Math.max(...data.map((d) => d.value)) * 1.15
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[150px] w-full items-center justify-center text-[12px] text-ink-faint">
+        Sem dados para exibir.
+      </div>
+    )
+  }
+
+  const max = Math.max(...data.map((d) => d.value), 1) * 1.15
   const min = 0
   const innerW = w - pad.left - pad.right
   const innerH = h - pad.top - pad.bottom
 
   const points = data.map((d, i) => {
-    const x = pad.left + (i / (data.length - 1)) * innerW
+    const x = pad.left + (data.length === 1 ? 0.5 : i / (data.length - 1)) * innerW
     const y = pad.top + innerH - ((d.value - min) / (max - min)) * innerH
     return { x, y, ...d }
   })

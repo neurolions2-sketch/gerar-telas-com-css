@@ -7,19 +7,22 @@ import { Gallery } from '@/components/nexlab/gallery'
 import { Timeline, type TimelineStep } from '@/components/nexlab/timeline'
 import { fetchSolicitacoesFromSheet } from '@/lib/google-sheets'
 import { type Solicitacao } from '@/lib/nexlab-data'
-import { ProgressRing } from '@/components/nexlab/charts'
+function splitLinks(value?: string) {
+  return String(value ?? '')
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
 
-const images = [
-  { src: '/equip/transformador-1.png', alt: 'Equipamento no banco de testes' },
-  { src: '/equip/transformador-2.png', alt: 'Detalhe dos terminais e conexões' },
-  { src: '/equip/transformador-3.png', alt: 'Medição com multímetro digital' },
-]
-
-const documentos = [
-  { nome: 'Laudo-preliminar-SOL.pdf', tamanho: '1,2 MB' },
-  { nome: 'Especificacao-tecnica.pdf', tamanho: '840 KB' },
-  { nome: 'Foto-etiqueta-equipamento.pdf', tamanho: '512 KB' },
-]
+function fileNameFromUrl(url: string) {
+  try {
+    const path = new URL(url).pathname
+    const name = decodeURIComponent(path.split('/').filter(Boolean).pop() ?? '')
+    return name || url
+  } catch {
+    return url
+  }
+}
 
 export default async function DetalhePage({
   params,
@@ -44,14 +47,30 @@ export default async function DetalhePage({
   }
   const sol = solicitacoes.find((s) => s.id === decoded) ?? solicitacoes[0] ?? fallback
 
-  const steps: TimelineStep[] = [
-    { title: 'Solicitação aberta', sub: `${sol.data} · ${sol.solicitante}`, done: true },
-    { title: 'Triagem técnica', sub: '28/06/2026 · Coordenação', done: true },
-    { title: 'Análise inicial', sub: '29/06/2026 · ' + sol.responsavel, done: true },
-    { title: 'Em teste de bancada', sub: 'Em andamento · laboratório', done: false },
-    { title: 'Elaboração do relatório', sub: 'Pendente', done: false },
-    { title: 'Devolutiva ao cliente', sub: `Previsto ${sol.previsao}`, done: false },
+  const fotos = splitLinks(sol.fotosEquipamento)
+  const images = fotos.map((src, index) => ({ src, alt: `Foto do equipamento ${index + 1}` }))
+  const documentos = splitLinks(sol.documentosComplementares).map((url) => ({
+    nome: fileNameFromUrl(url),
+    url,
+  }))
+
+  const flow: { key: Solicitacao['status']; title: string }[] = [
+    { key: 'aberta', title: 'Solicitação aberta' },
+    { key: 'analise', title: 'Em análise' },
+    { key: 'material', title: 'Aguardando material' },
+    { key: 'teste', title: 'Em teste' },
+    { key: 'relatorio', title: 'Elaboração do relatório' },
+    { key: 'finalizada', title: 'Finalizada' },
   ]
+  const currentIndex = flow.findIndex((step) => step.key === sol.status)
+  const steps: TimelineStep[] = flow.map((step, index) => {
+    let sub = 'Pendente'
+    if (step.key === 'aberta') sub = [sol.data, sol.solicitante].filter(Boolean).join(' · ') || 'Não informado'
+    else if (step.key === 'finalizada' && sol.dataFinalizacao) sub = `Concluída em ${sol.dataFinalizacao}`
+    else if (index === currentIndex) sub = 'Em andamento'
+    else if (currentIndex >= 0 && index < currentIndex) sub = 'Concluída'
+    return { title: step.title, sub, done: currentIndex >= 0 && index <= currentIndex }
+  })
 
   return (
     <AppShell crumb={`NEXLAB / SOLICITAÇÕES / ${sol.id}`} title="Detalhe da Solicitação">
@@ -105,42 +124,56 @@ export default async function DetalhePage({
           <Panel>
             <PanelHead title="Dados Técnicos" />
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 sm:grid-cols-2">
-              <Field label="Equipamento" value={sol.equipamento} />
-              <Field label="Código" value={sol.codigo} mono />
-              <Field label="Nº de série" value="SN-2026-44871" mono />
-              <Field label="Tensão nominal" value="13,8 kV" />
+              <Field label="Equipamento" value={sol.equipamento || 'Não informado'} />
+              <Field label="Código" value={sol.codigo || 'Não informado'} mono />
+              <Field label="Nº de série" value={sol.numeroSerie || 'Não informado'} mono />
+              <Field label="Objetivo do teste" value={sol.objetivoTeste || 'Não informado'} />
             </div>
             <Field
-              label="Descrição da ocorrência"
+              label="Motivo da solicitação"
               long
-              value="Equipamento apresentou variação de leitura fora da faixa de tolerância durante a operação. Solicitada análise completa de calibração, isolação e resposta de carga conforme norma técnica vigente."
+              value={sol.motivoSolicitacao || 'Não informado'}
             />
+            {sol.resultadoEsperado ? (
+              <Field label="Resultado esperado" long value={sol.resultadoEsperado} />
+            ) : null}
           </Panel>
 
           <Panel>
-            <PanelHead title="Galeria de Fotos do Equipamento" tag="3 FOTOS" />
-            <Gallery images={images} />
+            <PanelHead title="Galeria de Fotos do Equipamento" tag={`${images.length} FOTO${images.length === 1 ? '' : 'S'}`} />
+            {images.length > 0 ? (
+              <Gallery images={images} />
+            ) : (
+              <p className="text-[12.5px] text-ink-faint">Nenhuma foto do equipamento cadastrada nesta solicitação.</p>
+            )}
           </Panel>
 
           <Panel>
             <PanelHead title="Documentos Complementares" />
-            <div className="flex flex-col gap-2">
-              {documentos.map((doc) => (
-                <div
-                  key={doc.nome}
-                  className="flex items-center gap-2.5 rounded-[10px] border border-border px-3 py-2.5"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fceae8] text-danger">
-                    <FileText className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <div className="flex flex-1 flex-col leading-tight">
-                    <span className="text-[12px] font-semibold">{doc.nome}</span>
-                    <span className="text-[10.5px] text-ink-faint">{doc.tamanho}</span>
-                  </div>
-                  <Download className="h-4 w-4 text-ink-faint" strokeWidth={2} />
-                </div>
-              ))}
-            </div>
+            {documentos.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {documentos.map((doc) => (
+                  <a
+                    key={doc.url}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 rounded-[10px] border border-border px-3 py-2.5 transition-colors hover:bg-surface-alt"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#fceae8] text-danger">
+                      <FileText className="h-4 w-4" strokeWidth={2} />
+                    </span>
+                    <div className="flex flex-1 flex-col leading-tight">
+                      <span className="truncate text-[12px] font-semibold">{doc.nome}</span>
+                      <span className="text-[10.5px] text-ink-faint">Abrir documento</span>
+                    </div>
+                    <Download className="h-4 w-4 text-ink-faint" strokeWidth={2} />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12.5px] text-ink-faint">Nenhum documento complementar cadastrado.</p>
+            )}
           </Panel>
         </div>
 
@@ -154,14 +187,27 @@ export default async function DetalhePage({
           <Panel>
             <PanelHead title="Conclusão Técnica" />
             <p className="text-[12.5px] leading-relaxed text-ink-soft">
-              Análise em andamento. Os ensaios preliminares indicam desvio de
-              calibração compatível com desgaste de uso. Aguardando teste de
-              bancada para confirmação antes da emissão do laudo final.
+              {sol.conclusaoTecnica ||
+                (sol.status === 'finalizada'
+                  ? 'Solicitação finalizada sem conclusão técnica registrada.'
+                  : 'Conclusão técnica ainda não registrada para esta solicitação.')}
             </p>
-            <div className="mt-1 flex items-center gap-2 rounded-[10px] bg-surface-alt px-3 py-2.5 text-[11.5px] text-ink-soft">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
-              Laudo final previsto para {sol.previsao}
-            </div>
+            {sol.melhoriasIdentificadas ? (
+              <div className="mt-2">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.04em] text-ink-faint">
+                  Melhorias identificadas
+                </span>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">{sol.melhoriasIdentificadas}</p>
+              </div>
+            ) : null}
+            {sol.previsao ? (
+              <div className="mt-1 flex items-center gap-2 rounded-[10px] bg-surface-alt px-3 py-2.5 text-[11.5px] text-ink-soft">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
+                {sol.status === 'finalizada' && sol.dataFinalizacao
+                  ? `Finalizada em ${sol.dataFinalizacao}`
+                  : `Devolutiva prevista para ${sol.previsao}`}
+              </div>
+            ) : null}
           </Panel>
         </div>
       </div>

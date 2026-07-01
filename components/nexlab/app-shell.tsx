@@ -36,11 +36,11 @@ export function AppShell({ title, crumb, children }: Props) {
             </button>
             <div className="flex items-center gap-2.5 border-l border-border pl-4">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#1e3a8a] font-mono text-[11px] font-bold text-white">
-                RC
+                NX
               </span>
               <div className="hidden leading-tight sm:block">
-                <div className="text-[12.5px] font-semibold">Renata Castro</div>
-                <div className="text-[10.5px] text-ink-faint">Coordenação Técnica</div>
+                <div className="text-[12.5px] font-semibold">NEXLAB</div>
+                <div className="text-[10.5px] text-ink-faint">Gestão de Laboratório</div>
               </div>
             </div>
           </div>
