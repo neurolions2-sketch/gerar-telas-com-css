@@ -184,25 +184,33 @@ export async function fetchSolicitacoesFromSheet() {
     return demoSolicitacoes
   }
 
-  const { jwtClient, sheetsApi } = await authorizeSheets()
-  const sheetTitle = await getSheetTitle(jwtClient)
-  const range = `${sheetTitle}!A1:Z1000`
-  const response = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId!, range })
-  const rows = response.data.values ?? []
+  try {
+    const { jwtClient, sheetsApi } = await authorizeSheets()
+    const sheetTitle = await getSheetTitle(jwtClient)
+    const range = `${sheetTitle}!A1:Z1000`
+    const response = await sheetsApi.spreadsheets.values.get({ spreadsheetId: sheetId!, range })
+    const rows = response.data.values ?? []
 
-  if (rows.length < 2) {
-    return [] as Solicitacao[]
-  }
+    if (rows.length < 2) {
+      return [] as Solicitacao[]
+    }
 
-  const headers = rows[0].map((header) => normalizeHeader(String(header)))
-  return rows.slice(1).map((row) => {
-    const rowObject: Record<string, unknown> = {}
-    row.forEach((cell, index) => {
-      const headerKey = mapHeaderKey(headers[index])
-      if (headerKey) {
-        rowObject[headerKey] = cell
-      }
+    const headers = rows[0].map((header) => normalizeHeader(String(header)))
+    return rows.slice(1).map((row) => {
+      const rowObject: Record<string, unknown> = {}
+      row.forEach((cell, index) => {
+        const headerKey = mapHeaderKey(headers[index])
+        if (headerKey) {
+          rowObject[headerKey] = cell
+        }
+      })
+      return buildSolicitacaoFromRow(rowObject)
     })
-    return buildSolicitacaoFromRow(rowObject)
-  })
+  } catch (error) {
+    console.warn(
+      '[v0] Failed to read Google Sheet (check GOOGLE_SHEET_ID and that the service account has access). Using demo data fallback.',
+      error instanceof Error ? error.message : error,
+    )
+    return demoSolicitacoes
+  }
 }
